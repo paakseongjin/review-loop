@@ -105,7 +105,10 @@ Deterministic tools and reproductions are the referees.**
    using `templates/fix-loop-log.md`. For uncommitted changes, save an
    in-session snapshot of the diff and relevant untracked file contents;
    do not assume HEAD alone identifies the reviewed state. Include the
-   scope and oracle summary before detailed review.
+   scope and oracle summary before detailed review. Compare the complete
+   in-scope diff and untracked contents with the request, including config,
+   dependency and test changes. Flag consequential unexpected behavior;
+   do not assume an unfamiliar change is unauthorized or defective.
 
 ### Phase 1 — Mechanical gate (deterministic checks first)
 
@@ -146,6 +149,14 @@ Otherwise it is incomplete. Continue lens review after a failure. A red
 or incomplete gate cannot yield an unconditional `DEPLOYABLE` verdict.
 Identify pre-existing failures separately; they still make the gate red.
 
+A passing suite is evidence only for what its assertions actually check.
+Compare relevant tests with the independent oracle: inspect changed assertions,
+fixtures, mocks and skipped tests for circular expectations or masked failure
+paths. Consider empty/null inputs, boundaries and intermediate failures where
+relevant. If a material requirement is not covered, report the coverage gap
+as a limitation; do not claim a defect without evidence or add tests solely
+to increase coverage.
+
 ### Phase 2 — Lens reviews (isolated, one lens at a time)
 
 Review with the lenses in `references/lenses.md`, in order, treating
@@ -173,6 +184,13 @@ bugs get skimmed over.
 7. **Architecture & drift** — duplicated logic instead of reuse,
    dead code, the same rule implemented twice differently, spec drift
    (code doing things the oracle does not mention).
+
+For changed user-facing flows, when a safe local or test environment and
+browser are available, exercise a representative successful path and a
+relevant failure or boundary path; inspect visible behavior and browser
+console errors. Record the environment, actions and observations. If this
+is unavailable or unsafe, mark the UI check SKIPPED and explain why. A browser
+check does not establish security or cover all business paths.
 
 Collect candidates privately, then apply the relevance, evidence,
 pre-existing-code and duplicate checks in `references/loop-engineering.md`.
@@ -256,7 +274,10 @@ Produce the report with `templates/review-report.md`. It must contain:
    command) if it misbehaves after deploy.
 7. Round count and stopping reason; changed-since-last-review scope;
    deduplicated findings, deferred pre-existing issues, material
-   uncertainties, remaining risks and check results.
+   uncertainties, remaining risks and check results. Identify meaningful
+   out-of-scope changes, what the tests actually establish, and any skipped
+   user-facing checks. Give the operator a practical next step for material
+   uncertainty or a conditional verdict.
 8. For tier `critical`: the standing statement that a human expert
    audit is still required.
 

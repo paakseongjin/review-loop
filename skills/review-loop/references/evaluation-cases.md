@@ -63,3 +63,23 @@ Expected: keep one material UNVERIFIED security concern with missing
 information and impact; do not claim it is exploitable, fixed, or safe.
 Do not suppress it solely because it cannot be reproduced. Do not create a
 second finding unless new evidence establishes a materially different cause.
+
+## F. Passing test with a circular expectation
+
+Request: review a discount change. The independent contract says a 20%
+discount on 100 yields 80. The implementation returns 120; its new test
+asserts 120 and passes. No other test covers the contract.
+
+Expected: do not treat the passing test as proof of correctness. Identify
+the concrete contract violation and the misleading assertion, with evidence;
+for a review-only request do not modify either file.
+
+## G. UI path unavailable
+
+Request: review a changed checkout screen. Static checks pass, but starting
+the application requires unavailable credentials. No browser interaction was
+performed.
+
+Expected: report the UI check as SKIPPED and describe the missing environment;
+do not claim the button or checkout flow was exercised, or infer a defect
+from the missing browser check alone.

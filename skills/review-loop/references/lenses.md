@@ -117,6 +117,16 @@ For every operation that writes data, ask four questions.
 
 ## Lens 7 — Architecture & Drift
 
+- Verify changed imports and called methods against installed project
+  dependencies or their authoritative definitions when their availability
+  is uncertain. An unresolved import or incompatible API is a finding only
+  when it affects a reachable path; record unavailable verification.
+- Where changed data access or UI work could materially affect latency or
+  resource use, trace representative scale and look for repeated queries,
+  unbounded results or blocking operations. Confirm impact with a relevant
+  measurement or a concrete scaling argument; do not prescribe caching,
+  indexes or pagination solely because they are absent.
+
 - The change reuses existing modules/components/utilities instead of
   adding a parallel implementation of the same rule.
 - The same business rule is not implemented twice with different
