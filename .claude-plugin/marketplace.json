@@ -1,1 +1,14 @@
-{"name":"review-loop-local","owner":{"name":"review-loop"},"plugins":[{"description":"Evidence-based code review loop for AI-generated code (mechanical gate, lens reviews incl. ACID, reproduction before fix, plain-language verdict).","name":"review-loop","source":"./"}]}
+{
+  "name": "review-loop-local",
+  "owner": {
+    "name": "review-loop"
+  },
+  "plugins": [
+    {
+      "description": "Evidence-based code review loop for AI-generated code (mechanical gate, lens reviews incl. ACID, reproduction before fix, plain-language verdict).",
+      "name": "review-loop",
+      "source": "./"
+    }
+  ],
+  "description": "Review-loop plugin marketplace for evidence-based code review."
+}

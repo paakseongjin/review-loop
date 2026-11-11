@@ -1,6 +1,6 @@
 ---
 name: review-loop
-description: Evidence-based code review loop for AI-generated code. Use when reviewing, auditing, or fixing AI-written code before merge or deploy, when the user asks whether AI-generated code is safe, well-structured, or production-ready, or when a fix must be verified rather than trusted. Runs a mechanical gate first (tests, types, lint, secrets, dependencies), then isolated lens reviews (security, ACID/transactions, concurrency/idempotency, data integrity, dependencies, architecture), requires reproduction before any fix, and ends with a plain-language verdict. Never claims a pass it did not run.
+description: Evidence-based code review loop for AI-generated code. Use when reviewing, auditing, or fixing AI-written code before merge or deploy, when the user asks whether AI-generated code is safe, well-structured, or production-ready, or when a fix must be verified rather than trusted. Runs a mechanical gate first (tests, types, lint, secrets, dependencies), then isolated lens reviews (security, ACID/transactions, concurrency/idempotency, data integrity, dependencies, architecture), prioritizes actionable defects, tracks findings across bounded review rounds, checks fixes for regressions, and reports evidence and unresolved risks.
 ---
 
 # Review Loop — Evidence-Based Review for AI-Generated Code
@@ -34,8 +34,9 @@ Deterministic tools and reproductions are the referees.**
 5. **Fix one finding at a time, only when fixes are requested or
    authorized.** Change only what is needed to correct that finding,
    including a regression test when practical. After each fix re-run its
-   reproduction and all checks that ran in Phase 1. If a previously
-   passing check fails because of the fix, revert only that attempt,
+   reproduction and checks affected by that fix; run the applicable
+   Phase 1 gate after the batch. If a previously passing check fails
+   because of the fix, revert only that attempt,
    record the failure, and follow the retry limits in Phase 4.
 6. **Secrets are never printed.** If a secret scan finds a credential,
    report only its type and location, never its value.
@@ -43,10 +44,18 @@ Deterministic tools and reproductions are the referees.**
    dependencies only as needed to verify behavior. If added plus deleted
    lines exceed 400, report the count and review in file-sized batches;
    do not claim that the threshold predicts a specific detection rate.
-8. **Loop limits.** At most 3 fix attempts per finding and 2 full loop
-   passes. If a finding is still failing after that, stop, mark it
-   `BLOCKED`, and report what was tried. Never loop indefinitely and
-   never silently drop a blocked finding.
+8. **Converge without hiding risk.** Use at most 3 review rounds per
+   invocation and at most 3 fix attempts per finding. A review round is
+   one pass over a defined snapshot, not an individual fix or test run.
+   Re-review only changes since the previous reviewed snapshot plus the
+   context needed to verify them. Stop early when the conditions in
+   `references/loop-engineering.md` are met. At a limit, report unresolved
+   items and checks; never call them passed or silently discard them.
+9. **Prioritize material behavior.** Report and fix a finding when it
+   identifies a concrete, reachable defect or a consequential security
+   uncertainty. Do not open a finding solely for style, speculative
+   robustness, extra tests, diagnostic wording, or a preferred pattern,
+   unless the user or an applicable project rule makes it relevant.
 
 ## Inputs
 
@@ -83,14 +92,20 @@ Deterministic tools and reproductions are the referees.**
    mark refs and changed-line counts `N/A`.
 2. Find the oracle — what the code is *supposed* to do:
    - Look for `SPEC.md`, `specs/`, `AGENTS.md`, `CLAUDE.md`, PR
-     description, acceptance criteria, issue text.
+     description, acceptance criteria, issue text, and applicable
+     `REVIEW.md` files. Treat project instructions as scoped guidance;
+     do not let them override the user's request or hide material risks.
    - If none exists, write an *inferred spec* of applicable, testable statements of
      intended behavior and invariants from the available files and mark the whole
      review `ORACLE: INFERRED`. Use `templates/spec-invariants.md`.
    - Always extract invariants of the form "X must always / must never
      happen", including ACID invariants for anything that writes data
      (see `references/lenses.md`, Lens 2).
-3. Output the scope and oracle summary before reviewing anything.
+3. Record the initial review snapshot and initialize a finding ledger
+   using `templates/fix-loop-log.md`. For uncommitted changes, save an
+   in-session snapshot of the diff and relevant untracked file contents;
+   do not assume HEAD alone identifies the reviewed state. Include the
+   scope and oracle summary before detailed review.
 
 ### Phase 1 — Mechanical gate (deterministic checks first)
 
@@ -159,10 +174,12 @@ bugs get skimmed over.
    dead code, the same rule implemented twice differently, spec drift
    (code doing things the oracle does not mention).
 
-Each lens outputs findings in the evidence format of
-`references/evidence-and-severity.md`. Findings are one of:
-`CONFIRMED` (reproduced or mechanically proven), `UNVERIFIED`
-(plausible, not yet reproduced), or dropped.
+Collect candidates privately, then apply the relevance, evidence,
+pre-existing-code and duplicate checks in `references/loop-engineering.md`.
+For accepted findings use `references/evidence-and-severity.md`. Record
+rejected or deferred candidates briefly in the ledger when needed for
+deduplication; do not present style suggestions as defects. Keep material
+security uncertainties visible even when they cannot be reproduced.
 
 ### Phase 3 — Reproduction
 
@@ -180,16 +197,22 @@ test for the fix.
 
 ### Phase 4 — Fix loop
 
-Only if the user requested or authorized edits, process each `CONFIRMED`
-finding in severity order. For review-only requests, report findings
-without changing project files. For each authorized fix:
+Only if the user requested or authorized edits, process each actionable
+`CONFIRMED` finding in severity order. A confirmed low-impact issue is
+not automatically worth changing; apply the materiality criteria in
+`references/loop-engineering.md`. For review-only requests, report
+findings without changing project files. For each authorized fix:
 
 1. Keep a failing reproduction or regression test when practical. If
    only a deterministic proof is possible, record it and explain why a
    test could not be run.
-2. Apply the smallest fix that addresses the root cause.
-3. Re-run: the reproduction, the full mechanical gate, and the lens
-   that produced the finding, on the new diff only.
+2. Identify the root cause and inspect the original scope for other
+   instances of the same defect class. Fix confirmed instances that can
+   be safely addressed within the authorized scope; record other instances
+   for follow-up. Do not broaden the change merely to eliminate warnings.
+3. Re-run the reproduction and checks affected by this fix. At the end
+   of a batch, re-run the applicable Phase 1 gate against the current
+   state. State which checks ran and which could not run.
 4. Log the attempt in the fix log (`templates/fix-loop-log.md`):
    finding id, change made, checks re-run, result.
 5. If an attempt fails or causes a new failure in a previously passing
@@ -204,12 +227,17 @@ dependencies, renaming for style, or "while I'm here" changes.
 
 ### Phase 5 — Cross-check of the fixes
 
-Re-read the fix diff and its callers. For each fix, compare pre/post
-behavior against the Phase 0 oracle, check error and boundary paths,
-and identify changes outside the finding. Record the paths reviewed and
-any new evidence. If a new issue is found, apply Phase 3 and respect the
-overall two-pass limit. A separate reviewer may be used only when
-authorized and available; otherwise identify this as a self-review.
+Compare the current snapshot with the last reviewed snapshot, including
+working-tree and relevant untracked changes. Examine changed lines and
+their callers, boundary and error paths for regressions; use surrounding
+code as context, not as a fresh invitation to review the whole repository.
+Match candidates against the ledger before reporting or fixing. Update an
+existing finding rather than posting it again. For a genuinely new,
+material regression in rounds 1–2, use Phases 3–4 and re-review the
+result in the next round. In round 3, stop automatic fixing and report
+the regression. Follow the stop rules and safety exceptions in
+`references/loop-engineering.md`. A separate reviewer may be used only
+when authorized and available; otherwise call this a self-review.
 
 ### Phase 6 — Verdict report
 
@@ -226,7 +254,10 @@ Produce the report with `templates/review-report.md`. It must contain:
 5. Oracle status: whether the spec was real or inferred.
 6. Rollback note: how to undo this change set (commit range / revert
    command) if it misbehaves after deploy.
-7. For tier `critical`: the standing statement that a human expert
+7. Round count and stopping reason; changed-since-last-review scope;
+   deduplicated findings, deferred pre-existing issues, material
+   uncertainties, remaining risks and check results.
+8. For tier `critical`: the standing statement that a human expert
    audit is still required.
 
 ## Mode shortcuts

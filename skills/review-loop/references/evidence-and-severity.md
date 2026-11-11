@@ -33,9 +33,9 @@ automatically UNVERIFIED.
 - **Major** — a realistic user flow breaks; an invariant (Lens 2–4)
   can be violated without an attacker; a fix regression is likely.
   Blocks deploy on `public` and `critical` tiers.
-- **Minor** — correctness or maintainability issue with a workaround;
-  drift that will cost later but does not break behavior now.
-  Does not block deploy; must still be listed.
+- **Minor** — a concrete correctness issue with limited impact and a
+  practical workaround. Do not turn style preferences or speculative
+  maintenance concerns into findings; see `loop-engineering.md`.
 - **Note** — observation without a failing scenario. Keep few.
 
 ## Status rules
@@ -65,6 +65,6 @@ automatically UNVERIFIED.
 - Oracle INFERRED → at best `DEPLOYABLE WITH CONDITIONS`, and the
   verdict says the review checked the code against an inferred spec,
   not against confirmed intent.
-- Everything else → the verdict still lists Minor, UNVERIFIED, and
-  SKIPPED items. A clean verdict with hidden caveats is a failure of
+- Everything else → the verdict still lists accepted Minor findings,
+  material UNVERIFIED concerns, and SKIPPED checks. A clean verdict with hidden caveats is a failure of
   this skill, not a success.

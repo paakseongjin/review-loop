@@ -1,1 +1,17 @@
-{"author":{"name":"review-loop"},"description":"Evidence-based code review loop for AI-generated code: mechanical gate first, isolated lens reviews (security, ACID/transactions, concurrency/idempotency, data integrity, supply chain, architecture), reproduction before any fix, and a plain-language verdict. For Cursor and Claude Code.","keywords":["code-review","verification","vibe-coding","acid","security","quality-gate"],"license":"MIT","name":"review-loop","version":"1.0.0"}
+{
+  "author": {
+    "name": "review-loop"
+  },
+  "description": "Evidence-based code review with materiality filtering, bounded review rounds, regression checks, and a finding ledger.",
+  "keywords": [
+    "code-review",
+    "verification",
+    "vibe-coding",
+    "acid",
+    "security",
+    "quality-gate"
+  ],
+  "license": "MIT",
+  "name": "review-loop",
+  "version": "1.1.0"
+}

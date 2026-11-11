@@ -15,8 +15,9 @@ alwaysApply: true
   expected vs. actual behavior, and reproduction or deterministic proof.
   Without that evidence, mark it UNVERIFIED and do not fix it.
 - Fix one finding at a time with the smallest diff. Re-run the
-  reproduction and the test/type/lint/build gate after each fix.
-  Revert a fix that breaks a previously passing check.
+  reproduction and affected checks after each fix; run the applicable
+  gate after each batch. Revert an attempt that breaks a previously
+  passing check without reverting user changes.
 - Where an invariant requires multiple database writes to succeed or
   fail together, use a transaction or equivalent atomic mechanism.
   Verify uniqueness, balance and referential invariants for the actual
@@ -30,6 +31,6 @@ alwaysApply: true
 - Never hardcode or print secrets. Never log secrets or personal data.
 - New dependencies must exist in the official registry and be pinned.
 - Small changes only: no unrelated refactors or upgrades inside a fix.
-- For a full review, run the `review-loop` skill instead of a free-form
-  review: mechanical gate first, then lens reviews, reproduction
-  before fixes, plain-language verdict at the end.
+- For a full review, use `review-loop`: verify relevant checks, select
+  material findings using evidence, track duplicates and origins, and
+  re-review the fix diff. Report unresolved risks and the stop reason.

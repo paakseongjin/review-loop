@@ -1,12 +1,21 @@
-# Fix Loop Log — <scope>
+# Review and Fix Ledger — <scope>
 
-One entry per attempt. Max 3 attempts per finding, 2 full passes.
+Keep this in the report or session; create a file only if requested. A
+round reviews one snapshot; an attempt is one proposed fix. Maximum:
+3 rounds per invocation and 3 attempts per finding.
 
-| # | Finding | Attempt | Change made | Reproduction result | Gate result | Outcome |
+| ID | Cause / invariant / trigger | Locations | Origin | Disposition | Status | Evidence / resolution |
 |---|---|---|---|---|---|---|
-| 1 | F-01 | 1 | | FAIL→PASS / still FAIL | PASS/FAIL per check | FIXED / retry / BLOCKED (reverted) |
+| F-01 | | | INTRODUCED / PRE_EXISTING / FIX_REGRESSION / UNKNOWN | ACTIONABLE / DEFERRED / REJECTED / UNVERIFIED | CONFIRMED / UNVERIFIED / FIXED / BLOCKED | |
 
-## Blocked findings — what was tried
+| Round | Reviewed snapshot and comparison | Finding IDs | Checks and results | Stop / continue reason |
+|---|---|---|---|---|
+| 1 | | | | |
 
-- F-xx: attempt 1 … / attempt 2 … / attempt 3 …
-  Why it is blocked and what a human needs to decide:
+| Finding | Attempt | Change | Reproduction and affected checks | Outcome / revert |
+|---|---|---|---|---|
+| F-01 | 1 | | | |
+
+## Deferred, unverified and blocked
+
+- ID, impact, reason, missing evidence, and next action:

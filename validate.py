@@ -15,6 +15,8 @@ required = [
     ".claude-plugin/plugin.json", ".claude-plugin/marketplace.json",
     "skills/review-loop/SKILL.md",
     "skills/review-loop/references/lenses.md",
+    "skills/review-loop/references/loop-engineering.md",
+    "skills/review-loop/references/evaluation-cases.md",
     "skills/review-loop/references/evidence-and-severity.md",
     "skills/review-loop/references/mechanical-gates.md",
     "skills/review-loop/templates/review-report.md",

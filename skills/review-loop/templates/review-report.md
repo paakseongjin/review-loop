@@ -25,6 +25,11 @@ Scope: base <ref> → head <ref>, <N> files, <M> changed lines
 
 Pre-existing failures on base ref: none | <list>
 
+Review rounds: <count> / 3
+Stop reason: <converged / review only / blocked / round cap>
+Last re-review scope and snapshot: <details>
+Deferred pre-existing risks: <none / details>
+
 ## Findings
 
 Counts: Critical <n> · Major <n> · Minor <n> · Note <n>
