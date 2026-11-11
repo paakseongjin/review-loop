@@ -9,17 +9,19 @@ These standing rules apply to every change in this project.
   was not run is reported as not run.
 - Never edit, delete, skip, or relax a test, assertion, lint rule, or
   type setting to make checks pass.
-- Every bug fix ships with a reproduction or regression test that
-  fails before the fix and passes after.
+- For a bug fix, run a failing reproduction before the fix and again
+  afterward when practical. Otherwise record a deterministic proof and
+  explain why a reproduction could not be run.
 
 ## Data safety
 
-- Any operation writing to 2+ tables runs in one transaction.
+- When an invariant requires multiple database writes to succeed or
+  fail together, use a transaction or equivalent atomic mechanism.
 - Business invariants (uniqueness, non-negative balance/stock,
   referential integrity) are enforced by database constraints, not
   only by application code.
-- Payments and other non-idempotent effects require an idempotency
-  key; webhook handlers deduplicate by event id.
+- Prevent duplicate payment and other non-idempotent effects on retry;
+  use an idempotency key or another mechanism suited to the operation.
 - Never hardcode secrets. Never log secrets or personal data.
 
 ## Authorization

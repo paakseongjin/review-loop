@@ -1,7 +1,6 @@
 ---
 name: review-loop
 description: Evidence-based code review loop for AI-generated code. Use when reviewing, auditing, or fixing AI-written code before merge or deploy, when the user asks whether AI-generated code is safe, well-structured, or production-ready, or when a fix must be verified rather than trusted. Runs a mechanical gate first (tests, types, lint, secrets, dependencies), then isolated lens reviews (security, ACID/transactions, concurrency/idempotency, data integrity, dependencies, architecture), requires reproduction before any fix, and ends with a plain-language verdict. Never claims a pass it did not run.
-argument-hint: "[branch, PR, commit range, or path to review] [risk tier: prototype|internal|public|critical]"
 ---
 
 # Review Loop — Evidence-Based Review for AI-Generated Code
@@ -20,9 +19,10 @@ Deterministic tools and reproductions are the referees.**
    "no vulnerabilities" unless you ran the command in this session and
    saw its output. Record the exact command and its exit code.
    A check you could not run is `SKIPPED` or `UNVERIFIED`, never `PASS`.
-2. **No reproduction, no fix.** A finding without a concrete failing
-   scenario (input, steps, expected vs. actual) is a hypothesis.
-   Label it `UNVERIFIED` and do not modify code for it.
+2. **Evidence before fixing.** Record the triggering input or state,
+   steps, expected and actual behavior, and either observed output or
+   a deterministic proof tracing the relevant code and configuration.
+   Without that evidence, mark the finding `UNVERIFIED` and do not fix it.
 3. **Never weaken tests to go green.** Do not edit, delete, skip, or
    relax a test, assertion, lint rule, or type setting in order to make
    a check pass. If a test itself is wrong, stop and report why, with
@@ -31,14 +31,18 @@ Deterministic tools and reproductions are the referees.**
    severity, the failing scenario, expected vs. actual behavior, and
    the evidence. Findings that cannot meet this format are dropped or
    marked `UNVERIFIED`.
-5. **Fix one finding at a time.** Minimal diff per fix. After each fix,
-   re-run the mechanical gate (Phase 1) plus the reproduction for that
-   finding. A fix that breaks a previously passing check is reverted.
+5. **Fix one finding at a time, only when fixes are requested or
+   authorized.** Change only what is needed to correct that finding,
+   including a regression test when practical. After each fix re-run its
+   reproduction and all checks that ran in Phase 1. If a previously
+   passing check fails because of the fix, revert only that attempt,
+   record the failure, and follow the retry limits in Phase 4.
 6. **Secrets are never printed.** If a secret scan finds a credential,
    report only its type and location, never its value.
-7. **Small scope.** Review the requested diff/scope only. If the diff
-   exceeds ~400 changed lines, warn the operator that detection quality
-   drops sharply and propose splitting before reviewing.
+7. **Bounded scope.** Review the requested changes and read their
+   dependencies only as needed to verify behavior. If added plus deleted
+   lines exceed 400, report the count and review in file-sized batches;
+   do not claim that the threshold predicts a specific detection rate.
 8. **Loop limits.** At most 3 fix attempts per finding and 2 full loop
    passes. If a finding is still failing after that, stop, mark it
    `BLOCKED`, and report what was tried. Never loop indefinitely and
@@ -48,12 +52,18 @@ Deterministic tools and reproductions are the referees.**
 
 - `$ARGUMENTS`: scope (branch / PR / commit range / paths) and optional
   risk tier. If scope is missing, default to the current uncommitted
-  diff plus the last commit, and say so.
-- Risk tier (default `public` if data or other users are involved,
-  otherwise ask once):
+  diff plus the last commit, and say so. Include staged and unstaged
+  changes; list untracked files separately and inspect their contents if
+  they are in scope. If there is no commit or no Git repository, review
+  available files in the requested path and report that no diff exists.
+- Risk tier: use the user-specified tier. Otherwise choose `critical`
+  for payments, health or destructive data operations; `public` for
+  public services or personal data; `internal` for a team-only tool;
+  `prototype` only when no real users or data are involved. If the
+  evidence does not establish a tier, use `public` and label it assumed:
   - `prototype` — no real users, no real data. Run Phases 0–6,
     limiting Phase 2 to lenses 1 and 6.
-  - `internal` — team tool, no payment/personal data. Phases 1–5.
+  - `internal` — team tool, no payment/personal data. Phases 0–6.
   - `public` — public SaaS, user accounts, personal data. All phases.
   - `critical` — payments, health, destructive data operations.
     All phases, plus: state in the verdict that a human expert audit
@@ -63,13 +73,19 @@ Deterministic tools and reproductions are the referees.**
 
 ### Phase 0 — Freeze scope and establish the oracle
 
-1. Record the exact scope: base ref, head ref, changed file list,
-   changed line count (`git diff --stat`).
+1. Record the requested scope, base and head when available, changed
+   file list, and added/deleted line counts. For the default scope use
+   `git diff --numstat HEAD^` when HEAD has a parent, plus `git status
+   --short` for untracked paths. If HEAD has no parent, use `git show
+   --numstat --format= HEAD` and `git diff --numstat HEAD` separately.
+   For untracked files report their count separately; do not treat them
+   as included in `git diff`. For a non-Git folder report file paths and
+   mark refs and changed-line counts `N/A`.
 2. Find the oracle — what the code is *supposed* to do:
    - Look for `SPEC.md`, `specs/`, `AGENTS.md`, `CLAUDE.md`, PR
      description, acceptance criteria, issue text.
-   - If none exists, write an *inferred spec* (5–15 plain statements of
-     intended behavior plus invariants) from the diff and mark the whole
+   - If none exists, write an *inferred spec* of applicable, testable statements of
+     intended behavior and invariants from the available files and mark the whole
      review `ORACLE: INFERRED`. Use `templates/spec-invariants.md`.
    - Always extract invariants of the form "X must always / must never
      happen", including ACID invariants for anything that writes data
@@ -78,7 +94,11 @@ Deterministic tools and reproductions are the referees.**
 
 ### Phase 1 — Mechanical gate (deterministic checks first)
 
-Run the gate before reading code for review. Prefer the bundled script:
+Before executing checks, inspect project manifests, scripts and config
+for side effects; use a disposable test environment and test data when
+checks write state. Do not target production systems or send real
+external requests without authorization. Then run the applicable checks
+before detailed lens review. Prefer the bundled script when appropriate:
 
 ```bash
 bash /path/to/review-loop/scripts/gate.sh /path/to/project  # auto-detect stacks
@@ -94,8 +114,7 @@ covers, where the stack supports them:
 - static security scan (Semgrep / CodeQL / framework equivalent, if installed)
 
 The script runs project commands: tests and builds can change files or
-contact external services. Inspect them first and use an isolated or
-appropriate environment. Its exit code 0 means only that no executed
+contact external services. Its exit code 0 means only that no executed
 check failed; skipped or undetected checks are not passes. Suppressed
 failure output may contain secrets: inspect it separately and redact it.
 
@@ -105,8 +124,12 @@ hint noted — it is not a pass. If the test suite itself fails on the
 *base* ref, record that: pre-existing failures are reported, not
 quietly absorbed into the review.
 
-**Gate rule:** if the gate is red, lens review still proceeds, but the
-final verdict can never be "deployable" until the gate is green.
+**Gate rule:** `FAIL` means a check ran and returned a failing result;
+`SKIPPED` means it did not run. A gate is red if any check is `FAIL`;
+it is green only if every applicable planned check ran and passed.
+Otherwise it is incomplete. Continue lens review after a failure. A red
+or incomplete gate cannot yield an unconditional `DEPLOYABLE` verdict.
+Identify pre-existing failures separately; they still make the gate red.
 
 ### Phase 2 — Lens reviews (isolated, one lens at a time)
 
@@ -143,42 +166,50 @@ Each lens outputs findings in the evidence format of
 
 ### Phase 3 — Reproduction
 
-For every `Critical` or `Major` finding, produce a reproduction before
-any fix: a failing test, a script, or an exact request sequence.
-Run it and capture the actual output. If you cannot reproduce it after
-a genuine attempt, downgrade it to `UNVERIFIED`, keep it in the
-report, and do not fix it in this loop.
+For every finding proposed for a fix, attempt a failing test, script,
+or request sequence in a safe environment. Record command or request,
+input, exit status when applicable, and expected versus observed output.
+A deterministic proof is acceptable when execution is unavailable: cite
+the exact code/configuration and trace why the stated input must fail.
+A scanner alert or missing constraint alone is not proof of exploitability.
+If neither reproduction nor proof establishes the behavior, mark it
+`UNVERIFIED`, state what was tried and what is missing, and do not fix it.
 
 Where a reproduction becomes a test, keep it: it is the regression
 test for the fix.
 
 ### Phase 4 — Fix loop
 
-For each `CONFIRMED` finding, in severity order:
+Only if the user requested or authorized edits, process each `CONFIRMED`
+finding in severity order. For review-only requests, report findings
+without changing project files. For each authorized fix:
 
-1. Write or keep the failing reproduction/regression test.
+1. Keep a failing reproduction or regression test when practical. If
+   only a deterministic proof is possible, record it and explain why a
+   test could not be run.
 2. Apply the smallest fix that addresses the root cause.
 3. Re-run: the reproduction, the full mechanical gate, and the lens
    that produced the finding, on the new diff only.
 4. Log the attempt in the fix log (`templates/fix-loop-log.md`):
    finding id, change made, checks re-run, result.
-5. If the fix fails 3 times or breaks another check, revert it, mark
-   the finding `BLOCKED`, and continue with the next finding.
+5. If an attempt fails or causes a new failure in a previously passing
+   check, revert that attempt without reverting the user's changes.
+   Record the result and try another approach only if there is a concrete
+   new cause to address. After 3 attempts, or when no safe next attempt
+   is available, mark the finding `BLOCKED` and continue. If an attempt
+   cannot be isolated and reverted safely, stop editing and report it.
 
 Forbidden in this phase: refactoring unrelated code, upgrading
 dependencies, renaming for style, or "while I'm here" changes.
 
 ### Phase 5 — Cross-check of the fixes
 
-Re-review only the fix diffs, in a fresh pass (new context or a
-different model/agent where the environment supports it), asking one
-question: *did the fixes introduce a new defect or quietly change
-behavior outside the finding's scope?* Compare behavior against the
-Phase 0 oracle. Any new issue re-enters Phase 3.
-
-Note the limit honestly in the report: cross-model checks reduce, but
-do not eliminate, shared blind spots. That is why Phases 1 and 3 are
-mechanical.
+Re-read the fix diff and its callers. For each fix, compare pre/post
+behavior against the Phase 0 oracle, check error and boundary paths,
+and identify changes outside the finding. Record the paths reviewed and
+any new evidence. If a new issue is found, apply Phase 3 and respect the
+overall two-pass limit. A separate reviewer may be used only when
+authorized and available; otherwise identify this as a self-review.
 
 ### Phase 6 — Verdict report
 
@@ -203,7 +234,6 @@ Produce the report with `templates/review-report.md`. It must contain:
 - If the operator says "gate only": run Phase 1 and report the table.
 - If the operator says "quick review": Phases 0, 1, and lenses 1–3,
   and state in the verdict that this was a partial review.
-- If the operator asks to "just fix everything": refuse the shortcut
-  politely and run the loop; unverified findings are reported, not
-  fixed. This rule exists because fixing unverified findings is how
-  AI review loops manufacture new bugs.
+- If the operator asks to fix everything, fix confirmed findings within
+  the requested scope. Report unverified findings and the evidence needed
+  to verify them; do not claim they were fixed.

@@ -40,21 +40,28 @@ automatically UNVERIFIED.
 
 ## Status rules
 
-- `CONFIRMED` requires reproduction output or mechanical proof
-  (scanner hit with location, failing test, DB constraint absent in
-  the actual schema).
+- `CONFIRMED` requires reproduction output or a deterministic trace
+  establishing the scenario. A scanner hit or missing constraint alone
+  is a lead, not proof that the stated consequence can occur.
 - `UNVERIFIED` is honest, not shameful. It means: plausible, worth a
   human look, not safe to auto-fix.
-- `FIXED` requires: reproduction now passes, gate green, and the fix
-  diff re-checked (Phase 5).
+- `FIXED` requires: the reproduction now passes, or the deterministic
+  proof is no longer valid after the fix; applicable checks were rerun;
+  and the fix diff was re-checked (Phase 5). Report failed or skipped
+  checks separately; they still constrain the verdict.
 - `BLOCKED` requires a log of what was tried (see fix-loop-log).
 
 ## Verdict mapping
 
-- Any Critical not FIXED → `NOT DEPLOYABLE`.
-- Any Major not FIXED on `public`/`critical` → `NOT DEPLOYABLE`;
+- Any confirmed Critical not FIXED → `NOT DEPLOYABLE`.
+- Any confirmed Major not FIXED on `public`/`critical` → `NOT DEPLOYABLE`;
   on `prototype`/`internal` → `DEPLOYABLE WITH CONDITIONS` at best.
-- Gate red → never `DEPLOYABLE`.
+- Gate red or incomplete → never unconditional `DEPLOYABLE`.
+  Use `BLOCKED` when required evidence cannot be obtained and no
+  meaningful verdict is possible; otherwise state the conditions.
+- An UNVERIFIED Critical or Major is not proof of a defect; describe
+  the potential impact, missing evidence, and whether the uncertainty
+  prevents a verdict. Do not count it as confirmed.
 - Oracle INFERRED → at best `DEPLOYABLE WITH CONDITIONS`, and the
   verdict says the review checked the code against an inferred spec,
   not against confirmed intent.

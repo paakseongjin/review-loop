@@ -50,15 +50,18 @@ code. A tool that is not installed is SKIPPED, not PASS.
 ## Any stack
 
 - **Baseline comparison:** run the same gate on the base ref
-  (e.g. `git stash` is forbidden — use a worktree or
-  `git checkout <base>` in a scratch clone). Failures that exist on
+  when a base ref is available and it is safe to run the checks
+  (use a separate worktree or scratch clone; do not stash user changes).
+  If the base cannot be checked, report `SKIPPED` and why. Failures that exist on
   base are pre-existing: report them separately. They still prevent
   an unconditional deployable verdict until resolved or explicitly
-  covered by a documented condition.
+  covered by a documented condition; see the verdict mapping in
+  `evidence-and-severity.md`.
 - **Database checks** (when a DB is reachable in the environment):
   list constraints on tables the change writes to
   (UNIQUE / CHECK / FK / NOT NULL) and confirm Lens 2 invariants are
   enforced in the schema, not only in code.
 - **E2E smoke** (when Playwright/Cypress exists): run the existing
   e2e suite; a missing e2e suite on a `public`/`critical` tier is a
-  Minor finding plus an UNVERIFIED note on user-flow coverage.
+  UNVERIFIED note on user-flow coverage; it is not by itself a
+  confirmed functional defect.

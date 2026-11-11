@@ -11,18 +11,19 @@ alwaysApply: true
 - Never edit, delete, skip, or relax a test, assertion, lint rule, or
   type setting to make checks go green. If a test looks wrong, stop
   and report the evidence instead.
-- A review finding needs file:line, a concrete failing scenario, and
-  expected vs. actual behavior. Without them it is a hypothesis:
-  do not change code for unverified findings.
+- A review finding needs file:line, a concrete failing scenario,
+  expected vs. actual behavior, and reproduction or deterministic proof.
+  Without that evidence, mark it UNVERIFIED and do not fix it.
 - Fix one finding at a time with the smallest diff. Re-run the
   reproduction and the test/type/lint/build gate after each fix.
   Revert a fix that breaks a previously passing check.
-- Data safety (ACID): multi-table writes run in one transaction;
-  invariants (unique, non-negative, foreign keys) are enforced by
-  database constraints, not only app code; acknowledged writes must
-  survive a restart.
-- Payments, orders, and sends must be idempotent: retries, double
-  clicks, and webhook redeliveries must not duplicate effects.
+- Where an invariant requires multiple database writes to succeed or
+  fail together, use a transaction or equivalent atomic mechanism.
+  Verify uniqueness, balance and referential invariants for the actual
+  storage design; acknowledged durable writes must survive a restart.
+- For payments, orders, and sends that may be retried, verify that
+  retries, double clicks, and webhook redeliveries do not duplicate
+  effects; use an idempotency key or equivalent mechanism as needed.
 - Authorization is checked on the server for every access to
   user-owned data. Hiding a button is not authorization. Keep
   database row-level policies enabled where supported.

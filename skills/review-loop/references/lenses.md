@@ -2,7 +2,9 @@
 
 Run each lens separately, in order. For every item: produce a finding
 only with file:line, a concrete failing scenario, and expected vs.
-actual behavior — otherwise mark it UNVERIFIED or drop it.
+actual behavior. Apply checks only to relevant paths and invariants. A
+missing implementation pattern alone is not a defect: show how the
+actual design violates a requirement, or mark the concern UNVERIFIED.
 
 ## Lens 1 — Security & Authorization
 
@@ -29,8 +31,8 @@ actual behavior — otherwise mark it UNVERIFIED or drop it.
 For every operation that writes data, ask four questions.
 
 ### Atomicity
-- Operations touching 2+ tables/rows (order + stock + points,
-  payment record + balance) run in one transaction.
+- Where an invariant requires multiple database writes to succeed or
+  fail together, verify a transaction or equivalent atomic mechanism.
 - Mid-operation failure (simulate by forcing an error in step 2 of 3)
   leaves **no** partial writes: no orphan rows, no deducted stock
   without an order, no charged payment without a record.
@@ -42,8 +44,8 @@ For every operation that writes data, ask four questions.
 - Business invariants are enforced by the database, not only by app
   code: UNIQUE (email, idempotency key), CHECK (balance >= 0,
   stock >= 0), FOREIGN KEY, NOT NULL.
-- App-level validation alone is a finding: it can be bypassed by a
-  direct API/DB call, a race, or a second client.
+- For app-only validation, identify an actual bypass or race before
+  confirming a finding; otherwise record the concern as UNVERIFIED.
 - Totals match their parts (order total = sum of items); derived
   values cannot drift from source values without a reconciliation.
 
@@ -54,8 +56,9 @@ For every operation that writes data, ask four questions.
 - Read-modify-write sequences (check stock, then decrement) are
   atomic in the DB (single UPDATE with condition, row lock, or
   optimistic version column) — not two separate app-level steps.
-- Isolation level / locking choice is deliberate for money and stock
-  paths; default-and-hope is a finding on `public`/`critical` tiers.
+- For money and stock paths, trace the isolation and locking behavior;
+  report a confirmed issue only if a concrete interleaving breaks an
+  invariant. If isolation cannot be determined, mark it UNVERIFIED.
 
 ### Durability
 - A success response is returned only after the write is committed.
@@ -68,9 +71,9 @@ For every operation that writes data, ask four questions.
 
 ## Lens 3 — Concurrency & Idempotency
 
-- Every non-idempotent POST (payment, order, send, charge) accepts or
-  generates an idempotency key; a retry with the same key returns the
-  original result instead of duplicating the effect.
+- For retried payment, order, send, or charge operations, trace how
+  duplicate effects are prevented. An idempotency key is one possible
+  mechanism; confirm a defect only when a duplicate effect can occur.
 - Client retries, double clicks, and webhook redeliveries do not
   duplicate effects (webhook handlers deduplicate by event id).
 - Counters and quotas are incremented atomically, not computed as
@@ -104,9 +107,10 @@ For every operation that writes data, ask four questions.
 - Every newly added package actually exists in its official registry
   and is the package the author intended (hallucinated or
   typosquatted names are a Critical finding).
-- New packages are not brand-new/abandoned for critical functions;
-  lockfile is updated and committed; versions pinned per project
-  convention.
+- For new packages, record their registry identity, release and
+  maintenance dates, and whether the lockfile matches project policy.
+  Explain any concrete supply-chain risk rather than applying an
+  undefined age or maintenance threshold.
 - Dependency audit shows no known critical/high CVEs in the added
   set, or each is listed in the report with a decision.
 - No install scripts or binary fetches were added silently.
@@ -119,9 +123,9 @@ For every operation that writes data, ask four questions.
   behavior (e.g. price calculation in two places).
 - No dead code, commented-out blocks, or TODO placeholders shipped
   as finished work.
-- The code does nothing the oracle/spec does not mention (silent
-  scope growth), and everything the spec requires is present
-  (silent scope loss). List both directions explicitly.
-- Naming and structure follow the repository's existing conventions;
-  a second style island is a Minor finding, a second data model for
-  the same concept is a Major finding.
+- Compare changed behavior with explicit requirements and inferred
+  assumptions. Report missing required behavior and concrete unexpected
+  behavior; lack of mention in an incomplete spec is not proof of a bug.
+- When duplicate implementations disagree, cite both locations and a
+  concrete input producing inconsistent results. Treat style differences
+  without a correctness impact as observations rather than defects.
