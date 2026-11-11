@@ -1,0 +1,14 @@
+# Local environments, secrets, and generated files
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.claude/settings.local.json
+.cursor/settings.local.json
+graphify-out/

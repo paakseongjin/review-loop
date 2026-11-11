@@ -1,0 +1,34 @@
+---
+description: Standing guardrails for AI-generated code — verification, data safety (ACID), authorization, change discipline. Full procedure lives in the review-loop skill.
+alwaysApply: true
+---
+
+# Review-Loop Guardrails (always on)
+
+- Never claim a check passed unless you ran it in this session and saw
+  the output. A check that did not run is reported as SKIPPED or
+  UNVERIFIED, never as a pass.
+- Never edit, delete, skip, or relax a test, assertion, lint rule, or
+  type setting to make checks go green. If a test looks wrong, stop
+  and report the evidence instead.
+- A review finding needs file:line, a concrete failing scenario, and
+  expected vs. actual behavior. Without them it is a hypothesis:
+  do not change code for unverified findings.
+- Fix one finding at a time with the smallest diff. Re-run the
+  reproduction and the test/type/lint/build gate after each fix.
+  Revert a fix that breaks a previously passing check.
+- Data safety (ACID): multi-table writes run in one transaction;
+  invariants (unique, non-negative, foreign keys) are enforced by
+  database constraints, not only app code; acknowledged writes must
+  survive a restart.
+- Payments, orders, and sends must be idempotent: retries, double
+  clicks, and webhook redeliveries must not duplicate effects.
+- Authorization is checked on the server for every access to
+  user-owned data. Hiding a button is not authorization. Keep
+  database row-level policies enabled where supported.
+- Never hardcode or print secrets. Never log secrets or personal data.
+- New dependencies must exist in the official registry and be pinned.
+- Small changes only: no unrelated refactors or upgrades inside a fix.
+- For a full review, run the `review-loop` skill instead of a free-form
+  review: mechanical gate first, then lens reviews, reproduction
+  before fixes, plain-language verdict at the end.
